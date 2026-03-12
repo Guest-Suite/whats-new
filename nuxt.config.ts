@@ -1,9 +1,5 @@
 export default defineNuxtConfig({
-  modules: ['@nuxtjs/tailwindcss'],
-
-  nitro: {
-    preset: 'netlify',
-  },
+  modules: ['@nuxtjs/tailwindcss', '@netlify/nuxt'],
 
   runtimeConfig: {
     notionApiKey: process.env.NOTION_API_KEY,

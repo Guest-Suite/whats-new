@@ -14,22 +14,13 @@
     <h2 class="entry__title">{{ entry.titre }}</h2>
 
     <!-- Media -->
-    <div class="entry__media" :class="{ 'entry__media--empty': !entry.media }">
+    <div v-if="entry.media" class="entry__media">
       <img
-        v-if="entry.media"
         :src="entry.media"
         :alt="entry.titre"
         class="entry__img"
         loading="lazy"
       >
-      <div v-else class="entry__placeholder">
-        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">
-          <rect x="3" y="3" width="18" height="18" rx="3"/>
-          <circle cx="8.5" cy="8.5" r="1.5"/>
-          <path d="M21 15l-5-5L5 21"/>
-        </svg>
-        <span>Média à venir</span>
-      </div>
     </div>
 
     <!-- Description -->
@@ -170,13 +161,6 @@ const parsedCorrections = computed(() => {
   max-height: 300px; object-fit: cover;
 }
 
-.entry__placeholder {
-  height: 120px;
-  display: flex; flex-direction: column;
-  align-items: center; justify-content: center; gap: 8px;
-  color: var(--text-muted);
-}
-.entry__placeholder span { font-size: 12px; font-weight: 400; }
 
 /* Description */
 .entry__desc {

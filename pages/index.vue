@@ -40,7 +40,7 @@
           Nouveautés produit
         </div>
         <h1 class="hero__title">
-          What's <span class="hero__accent">new</span>
+          Quoi de <span class="hero__accent">neuf ?</span>
         </h1>
         <p class="hero__desc">
           Découvrez les dernières fonctionnalités et améliorations de Guest Suite.
@@ -60,10 +60,15 @@
             @click="toggleTag(tag)"
           >{{ tag }}</button>
         </div>
-        <div class="filters__dates">
-          <input type="date" v-model="dateFrom" class="filter__date" :max="dateTo || undefined" />
-          <span class="filters__dates-sep">→</span>
-          <input type="date" v-model="dateTo" class="filter__date" :min="dateFrom || undefined" />
+        <div class="filters__sep" />
+        <div class="filters__tags">
+          <button
+            v-for="period in DATE_PERIODS"
+            :key="period.key"
+            class="filter__tag"
+            :class="{ 'filter__tag--active': selectedPeriod === period.key }"
+            @click="togglePeriod(period.key)"
+          >{{ period.label }}</button>
         </div>
         <button v-if="hasActiveFilters" class="filters__reset" @click="resetFilters">
           Réinitialiser
@@ -85,13 +90,8 @@
         >
           <div class="timeline__date-col">
             <div class="timeline__date-sticky">
-              <div class="timeline__date-node">
-                <div class="timeline__date-dot" />
-              </div>
-              <div class="timeline__date-text">
-                <time class="timeline__day">{{ group.day }}</time>
-                <span class="timeline__month">{{ group.monthYear }}</span>
-              </div>
+              <span class="timeline__date-dot" />
+              <time class="timeline__date-label">{{ group.label }}</time>
             </div>
             <div class="timeline__connector" />
           </div>
@@ -193,6 +193,11 @@
           </div>
 
           <template v-if="flatEntries[presIndex]">
+            <!-- Date -->
+            <p v-if="flatEntries[presIndex].date" class="pres-date">
+              {{ new Intl.DateTimeFormat('fr-FR', { day: 'numeric', month: 'long', year: 'numeric' }).format(new Date(flatEntries[presIndex].date)) }}
+            </p>
+
             <!-- Tags -->
             <div v-if="flatEntries[presIndex].tags.length" class="pres-tags">
               <span
@@ -207,7 +212,7 @@
             <h2 class="pres-title">{{ flatEntries[presIndex].titre }}</h2>
 
             <!-- Media -->
-            <div v-if="flatEntries[presIndex].media" class="pres-media">
+            <div v-if="flatEntries[presIndex]?.media" class="pres-media">
               <img :src="flatEntries[presIndex].media" :alt="flatEntries[presIndex].titre" class="pres-img" loading="lazy">
             </div>
 
@@ -274,9 +279,14 @@ const scrolled = ref(false)
 const year = new Date().getFullYear()
 
 // ── Filters ──
+const DATE_PERIODS = [
+  { key: '30d',  label: '30 derniers jours' },
+  { key: '90d',  label: '3 derniers mois' },
+  { key: '180d', label: '6 derniers mois' },
+]
+
 const selectedTags = ref<string[]>([])
-const dateFrom = ref('')
-const dateTo = ref('')
+const selectedPeriod = ref<string | null>(null)
 
 const allTags = computed(() => {
   const tags = new Set<string>()
@@ -286,7 +296,7 @@ const allTags = computed(() => {
   return Array.from(tags)
 })
 
-const hasActiveFilters = computed(() => selectedTags.value.length > 0 || !!dateFrom.value || !!dateTo.value)
+const hasActiveFilters = computed(() => selectedTags.value.length > 0 || !!selectedPeriod.value)
 
 function toggleTag(tag: string) {
   if (selectedTags.value.includes(tag)) {
@@ -296,10 +306,13 @@ function toggleTag(tag: string) {
   }
 }
 
+function togglePeriod(key: string) {
+  selectedPeriod.value = selectedPeriod.value === key ? null : key
+}
+
 function resetFilters() {
   selectedTags.value = []
-  dateFrom.value = ''
-  dateTo.value = ''
+  selectedPeriod.value = null
 }
 
 const groupedEntries = computed(() => {
@@ -308,11 +321,12 @@ const groupedEntries = computed(() => {
   if (selectedTags.value.length) {
     list = list.filter(e => e.tags.some((t: string) => selectedTags.value.includes(t)))
   }
-  if (dateFrom.value) {
-    list = list.filter(e => e.date && e.date >= dateFrom.value)
-  }
-  if (dateTo.value) {
-    list = list.filter(e => e.date && e.date <= dateTo.value)
+  if (selectedPeriod.value) {
+    const days = parseInt(selectedPeriod.value)
+    const cutoff = new Date()
+    cutoff.setDate(cutoff.getDate() - days)
+    const cutoffStr = cutoff.toISOString().slice(0, 10)
+    list = list.filter(e => e.date && e.date >= cutoffStr)
   }
 
   const groups: Record<string, any> = {}
@@ -322,8 +336,7 @@ const groupedEntries = computed(() => {
       const d = date !== 'unknown' ? new Date(date) : null
       groups[date] = {
         date,
-        day: d ? new Intl.DateTimeFormat('fr-FR', { day: 'numeric' }).format(d) : '—',
-        monthYear: d ? new Intl.DateTimeFormat('fr-FR', { month: 'short', year: 'numeric' }).format(d) : '',
+        label: d ? new Intl.DateTimeFormat('fr-FR', { day: 'numeric', month: 'short', year: 'numeric' }).format(d) : '—',
         entries: [],
       }
     }
@@ -435,7 +448,7 @@ onUnmounted(() => {
 })
 
 useHead({
-  title: "What's new — Guest Suite",
+  title: "Quoi de neuf ? — Guest Suite",
   meta: [{ name: 'description', content: 'Toutes les nouveautés de Guest Suite' }],
   link: [
     { rel: 'preconnect', href: 'https://fonts.googleapis.com' },
@@ -536,16 +549,16 @@ body {
 
 .header__cta {
   display: inline-flex; align-items: center; gap: 5px;
-  font-size: 13px; font-weight: 500;
-  color: var(--fuchsia-600); text-decoration: none;
+  font-size: 13px; font-weight: 600;
+  color: white; text-decoration: none;
   padding: 6px 14px; border-radius: 8px;
-  border: 1.5px solid var(--fuchsia-200);
-  background: var(--fuchsia-50);
+  border: 1.5px solid var(--fuchsia-600);
+  background: var(--fuchsia-600);
   transition: all 0.15s ease;
 }
 .header__cta:hover {
-  background: var(--fuchsia-600); color: white;
-  border-color: var(--fuchsia-600);
+  background: var(--fuchsia-700);
+  border-color: var(--fuchsia-700);
 }
 
 /* ── Hero ── */
@@ -624,28 +637,10 @@ body {
   border-color: var(--fuchsia-200);
 }
 
-.filters__dates {
-  display: flex; align-items: center; gap: 6px;
-}
-
-.filter__date {
-  font-family: var(--font);
-  font-size: 12.5px; color: var(--text-secondary);
-  background: transparent;
-  border: 1.5px solid var(--border-strong);
-  border-radius: 8px;
-  padding: 4px 10px;
-  outline: none;
-  cursor: pointer;
-  transition: border-color 0.15s ease;
-  appearance: none;
-  -webkit-appearance: none;
-}
-.filter__date:focus { border-color: var(--fuchsia-200); color: var(--text); }
-.filter__date::-webkit-calendar-picker-indicator { opacity: 0.5; cursor: pointer; }
-
-.filters__dates-sep {
-  font-size: 12px; color: var(--text-muted);
+.filters__sep {
+  width: 1px; height: 16px;
+  background: var(--border-strong);
+  flex-shrink: 0;
 }
 
 .filters__reset {
@@ -668,46 +663,37 @@ body {
 
 .timeline__group {
   display: grid;
-  grid-template-columns: 72px 1fr;
-  gap: 0 36px;
-  padding-top: 44px;
+  grid-template-columns: 180px 1fr;
+  gap: 0 40px;
+  padding-top: 40px;
 }
 
 .timeline__date-col { position: relative; }
 
 .timeline__date-sticky {
   position: sticky; top: 76px;
-  display: flex; flex-direction: column; align-items: center;
-  gap: 6px;
-  z-index: 2;
-  padding: 8px 0;
+  display: flex; align-items: center; gap: 10px;
+  padding: 4px 0;
   background: var(--bg);
+  z-index: 2;
 }
 
-.timeline__date-node { display: flex; justify-content: center; }
 .timeline__date-dot {
-  width: 10px; height: 10px; border-radius: 50%;
+  width: 8px; height: 8px; border-radius: 50%; flex-shrink: 0;
   background: var(--fuchsia-500);
-  box-shadow: 0 0 0 4px var(--bg), 0 0 0 6px var(--fuchsia-200);
-  flex-shrink: 0;
+  box-shadow: 0 0 0 3px var(--bg), 0 0 0 5px var(--fuchsia-200);
   position: relative; z-index: 3;
 }
 
-.timeline__date-text { text-align: center; }
-.timeline__day {
-  display: block; font-size: 24px; font-weight: 700;
-  letter-spacing: -0.03em; color: var(--text); line-height: 1;
-}
-.timeline__month {
-  display: block; font-size: 11px; font-weight: 500;
-  letter-spacing: 0.05em; text-transform: uppercase;
-  color: var(--text-muted); margin-top: 3px;
+.timeline__date-label {
+  font-size: 13px; font-weight: 500;
+  color: var(--text-secondary); line-height: 1.3;
 }
 
 .timeline__connector {
   position: absolute;
-  top: 48px; bottom: -44px;
-  left: 50%; transform: translateX(-50%);
+  top: 28px; bottom: -40px;
+  left: 3px;
   width: 1px;
   background: linear-gradient(to bottom, var(--border-strong) 0%, var(--border) 60%, transparent 100%);
 }
@@ -834,6 +820,13 @@ body {
   transition: all 0.15s ease;
 }
 .pres-action-btn:hover, .pres-close:hover { background: var(--border); color: var(--text); }
+
+.pres-date {
+  font-size: 12px; font-weight: 500;
+  color: var(--text-muted); letter-spacing: 0.04em;
+  text-transform: uppercase;
+  margin-bottom: 10px;
+}
 
 .pres-tags {
   display: flex; flex-wrap: wrap; gap: 6px;
@@ -976,30 +969,14 @@ body {
   .filters__inner { gap: 8px; }
   .filters__tags { flex-wrap: nowrap; overflow-x: auto; padding-bottom: 2px; }
   .filters__tags::-webkit-scrollbar { display: none; }
-  .filters__dates { width: 100%; }
-  .filter__date { flex: 1; }
+  .filters__sep { display: none; }
 
-  .timeline__group {
-    grid-template-columns: 1fr;
-    gap: 12px 0;
-  }
-  .timeline__date-col {
-    display: flex; align-items: center; gap: 10px;
-  }
-  .timeline__date-sticky {
-    position: static; flex-direction: row;
-    align-items: center; gap: 8px;
-    background: transparent; padding: 0;
-  }
-  .timeline__date-text {
-    display: flex; flex-direction: row;
-    align-items: baseline; gap: 5px;
-  }
-  .timeline__date-dot { margin: 0; }
-  .timeline__day { font-size: 15px; font-weight: 700; }
-  .timeline__month { margin-top: 0; font-size: 11px; }
-  .timeline__connector { display: none; }
   .hero__title { font-size: 36px; }
+
+  .timeline__group { grid-template-columns: 1fr; gap: 8px 0; }
+  .timeline__date-sticky { position: static; background: transparent; }
+  .timeline__connector { display: none; }
+  .timeline__entries { padding-left: 18px; border-left: 1px solid var(--border); margin-left: 3px; }
 
   /* ── Story mode mobile ── */
   .pres-overlay {

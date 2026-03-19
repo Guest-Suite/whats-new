@@ -1,0 +1,137 @@
+{
+  "name": "Quoi de neuf — Génération contenu externe",
+  "nodes": [
+    {
+      "parameters": {
+        "rule": {
+          "interval": [{ "field": "minutes", "minutesInterval": 5 }]
+        }
+      },
+      "id": "a1b2c3d4-0001-0001-0001-000000000001",
+      "name": "Toutes les 5 min",
+      "type": "n8n-nodes-base.scheduleTrigger",
+      "typeVersion": 1.2,
+      "position": [240, 300]
+    },
+    {
+      "parameters": {
+        "resource": "databasePage",
+        "operation": "getAll",
+        "databaseId": "134b85ab6efc802c9f61c8f2aa250968",
+        "returnAll": true,
+        "filterType": "manual",
+        "filters": {
+          "conditions": [
+            {
+              "key": "Statut Quoi de neuf|select",
+              "condition": "equals",
+              "filterValue": "À générer"
+            }
+          ]
+        },
+        "options": { "downloadFiles": false }
+      },
+      "id": "a1b2c3d4-0002-0002-0002-000000000002",
+      "name": "Notion — Pages à générer",
+      "type": "n8n-nodes-base.notion",
+      "typeVersion": 2.2,
+      "position": [460, 300],
+      "credentials": {
+        "notionApi": { "id": "notion", "name": "Notion account" }
+      }
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://api.anthropic.com/v1/messages",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            { "name": "x-api-key", "value": "={{ $credentials.value }}" },
+            { "name": "anthropic-version", "value": "2023-06-01" },
+            { "name": "content-type", "value": "application/json" }
+          ]
+        },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={\n  \"model\": \"claude-sonnet-4-6\",\n  \"max_tokens\": 1024,\n  \"messages\": [{\n    \"role\": \"user\",\n    \"content\": \"Tu es un assistant marketing pour Guest Suite, une plateforme B2B de gestion de la réputation en ligne pour les entreprises locales. Tes clients sont des responsables marketing, directeurs multi-sites, franchiseurs.\\n\\nÀ partir du contenu interne ci-dessous, génère le contenu externe pour le site Quoi de neuf, en français, sans jargon technique ni anglicismes. Le ton est professionnel, orienté bénéfice client, compréhensible par quelqu'un qui ne connaît pas les termes internes.\\n\\n**Nom de la release (interne) :**\\n{{ $json.Nom }}\\n\\n**Fonctionnalités (interne) :**\\n{{ $json['Listing des fonctionnalités'] }}\\n\\n**Bugs résolus (interne) :**\\n{{ $json['Résolution de Bugs'] }}\\n\\nRéponds UNIQUEMENT avec un objet JSON valide (pas de markdown, pas de balises), avec ces champs :\\n- \\\"titre\\\": Titre accrocheur pour les clients (max 80 caractères)\\n- \\\"description\\\": 2 à 3 phrases orientées bénéfice, compréhensibles par les clients, sans jargon\\n- \\\"corrections\\\": Tableau de strings, une entrée par bug, format \\\"Module - Description en langage client\\\". Tableau vide [] si pas de bugs.\\n- \\\"tags\\\": Tableau avec 1 à 2 valeurs parmi exactement : [\\\"Nouveau\\\", \\\"Amélioration\\\", \\\"Intégration\\\", \\\"Performance\\\"]\"\n  }]\n}",
+        "options": {}
+      },
+      "id": "a1b2c3d4-0003-0003-0003-000000000003",
+      "name": "Claude — Génère le contenu",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [680, 300],
+      "credentials": {
+        "httpHeaderAuth": { "id": "anthropic-key", "name": "Anthropic API Key" }
+      }
+    },
+    {
+      "parameters": {
+        "mode": "runOnceForEachItem",
+        "jsCode": "const response = $input.item.json;\nconst notionPage = $('Notion — Pages à générer').item.json;\n\nconst rawText = response.content?.[0]?.text ?? '';\n\nlet parsed;\ntry {\n  parsed = JSON.parse(rawText);\n} catch {\n  // Tente d'extraire le JSON si Claude a ajouté du texte autour\n  const match = rawText.match(/\\{[\\s\\S]*\\}/);\n  if (match) {\n    parsed = JSON.parse(match[0]);\n  } else {\n    throw new Error('Réponse Claude non parseable : ' + rawText);\n  }\n}\n\nreturn {\n  json: {\n    pageId: notionPage.id,\n    titre: (parsed.titre ?? '').slice(0, 200),\n    description: parsed.description ?? '',\n    corrections: Array.isArray(parsed.corrections) ? parsed.corrections.join('\\n') : '',\n    tags: Array.isArray(parsed.tags) ? parsed.tags : [],\n  }\n};"
+      },
+      "id": "a1b2c3d4-0004-0004-0004-000000000004",
+      "name": "Parse la réponse",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [900, 300]
+    },
+    {
+      "parameters": {
+        "resource": "databasePage",
+        "operation": "update",
+        "pageId": "={{ $json.pageId }}",
+        "propertiesUi": {
+          "propertyValues": [
+            {
+              "key": "Titre Quoi de neuf|rich_text",
+              "textContent": "={{ $json.titre }}"
+            },
+            {
+              "key": "Description Quoi de neuf|rich_text",
+              "textContent": "={{ $json.description }}"
+            },
+            {
+              "key": "Corrections Quoi de neuf|rich_text",
+              "textContent": "={{ $json.corrections }}"
+            },
+            {
+              "key": "Tags Quoi de neuf|multi_select",
+              "multiSelectValue": "={{ $json.tags }}"
+            },
+            {
+              "key": "Statut Quoi de neuf|select",
+              "selectValue": "Draft"
+            }
+          ]
+        }
+      },
+      "id": "a1b2c3d4-0005-0005-0005-000000000005",
+      "name": "Notion — Met à jour la page",
+      "type": "n8n-nodes-base.notion",
+      "typeVersion": 2.2,
+      "position": [1120, 300],
+      "credentials": {
+        "notionApi": { "id": "notion", "name": "Notion account" }
+      }
+    }
+  ],
+  "connections": {
+    "Toutes les 5 min": {
+      "main": [[{ "node": "Notion — Pages à générer", "type": "main", "index": 0 }]]
+    },
+    "Notion — Pages à générer": {
+      "main": [[{ "node": "Claude — Génère le contenu", "type": "main", "index": 0 }]]
+    },
+    "Claude — Génère le contenu": {
+      "main": [[{ "node": "Parse la réponse", "type": "main", "index": 0 }]]
+    },
+    "Parse la réponse": {
+      "main": [[{ "node": "Notion — Met à jour la page", "type": "main", "index": 0 }]]
+    }
+  },
+  "settings": {
+    "executionOrder": "v1"
+  }
+}

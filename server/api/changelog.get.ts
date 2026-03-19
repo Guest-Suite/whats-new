@@ -82,7 +82,7 @@ export default defineEventHandler(async (event) => {
     const response = await notion.databases.query({
       database_id: config.notionDatabaseId,
       filter: {
-        property: "Statut What's New",
+        property: 'Statut Quoi de neuf',
         select: { equals: 'Publié' },
       },
       sorts: [{ property: 'Date', direction: 'descending' }],
@@ -90,20 +90,20 @@ export default defineEventHandler(async (event) => {
 
     const results = response.results.map((page: any) => {
       const props = page.properties
-      const titreWhatsNew = (props["Titre What's New"]?.rich_text ?? [])
+      const titreQdn = (props['Titre Quoi de neuf']?.rich_text ?? [])
         .map((rt: any) => rt.plain_text).join('')
       return {
         id: page.id,
-        titre: titreWhatsNew || props.Nom?.title?.[0]?.plain_text || '',
-        description: (props['Description externe']?.rich_text ?? [])
+        titre: titreQdn || props.Nom?.title?.[0]?.plain_text || '',
+        description: (props['Description Quoi de neuf']?.rich_text ?? [])
           .map((rt: any) => rt.plain_text).join(''),
         date: props.Date?.date?.start ?? null,
         media: props['Média']?.url ?? null,
         ctaTexte: (props['CTA Texte']?.rich_text ?? [])
           .map((rt: any) => rt.plain_text).join('') || null,
         ctaLien: props['CTA Lien']?.url ?? null,
-        tags: props.Tags?.multi_select?.map((t: any) => t.name) ?? [],
-        corrections: (props['Corrections externes']?.rich_text ?? [])
+        tags: props['Tags Quoi de neuf']?.multi_select?.map((t: any) => t.name) ?? [],
+        corrections: (props['Corrections Quoi de neuf']?.rich_text ?? [])
           .map((rt: any) => rt.plain_text)
           .join('')
           .split('\n')

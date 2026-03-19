@@ -8,7 +8,6 @@
     "preview": "nuxt preview"
   },
   "dependencies": {
-    "@netlify/nuxt": "^0.2.33",
     "@notionhq/client": "^2.2.15",
     "nuxt": "^3.15.4"
   },

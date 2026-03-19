@@ -75,7 +75,7 @@ export default defineEventHandler(async (event) => {
   const dbId = config.notionDatabaseId || process.env.NOTION_DATABASE_ID
 
   if (!apiKey || !dbId) {
-    return [{ id: 'debug-no-env', titre: `NO ENV: apiKey=${!!apiKey} dbId=${!!dbId}`, description: '', date: null, media: null, ctaTexte: null, ctaLien: null, tags: [], corrections: [] }]
+    return MOCK_DATA
   }
 
   try {
@@ -115,7 +115,7 @@ export default defineEventHandler(async (event) => {
 
     return results.length ? results : MOCK_DATA
   }
-  catch (e: any) {
-    return [{ id: 'debug-error', titre: `ERROR: ${e?.message}`, description: '', date: null, media: null, ctaTexte: null, ctaLien: null, tags: [], corrections: [] }]
+  catch {
+    return MOCK_DATA
   }
 })

@@ -72,9 +72,9 @@ const MOCK_DATA = [
 export default defineEventHandler(async (event) => {
   const config = useRuntimeConfig(event)
   const apiKey = config.notionApiKey || process.env.NOTION_API_KEY
-  const dbId = config.notionDatabaseId || process.env.NOTION_DATABASE_ID
+  const DB_ID = '134b85ab6efc802c9f61c8f2aa250968'
 
-  if (!apiKey || !dbId) {
+  if (!apiKey) {
     return MOCK_DATA
   }
 
@@ -82,7 +82,7 @@ export default defineEventHandler(async (event) => {
     const notion = new Client({ auth: apiKey })
 
     const response = await notion.databases.query({
-      database_id: dbId,
+      database_id: DB_ID,
       filter: {
         property: 'Statut Quoi de neuf',
         select: { equals: 'Publié' },

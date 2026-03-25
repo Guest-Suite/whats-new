@@ -31,6 +31,7 @@
       v-if="entry.ctaTexte && entry.ctaLien"
       :href="ctaUrl"
       target="_blank"
+      rel="noopener noreferrer"
       class="entry__cta"
     >
       {{ entry.ctaTexte }}
@@ -115,44 +116,15 @@ const props = defineProps<{
   }
 }>()
 
-const APP_BASE = 'https://app.guest-suite.com'
+import { tagKey, buildCtaUrl, parseListItems } from '~/utils/changelog'
 
-const TAG_KEYS: Record<string, string> = {
-  'Nouveau':      'new',
-  'Amélioration': 'improve',
-  'Intégration':  'integration',
-  'Performance':  'perf',
-}
-
-const tagKey = (tag: string) => TAG_KEYS[tag] ?? 'default'
-
-const ctaUrl = computed(() => {
-  const l = props.entry.ctaLien ?? ''
-  return l.startsWith('http') ? l : `${APP_BASE}${l}`
-})
+const ctaUrl = computed(() => buildCtaUrl(props.entry.ctaLien))
 
 const autresAjoutsOpen = ref(false)
 const correctionsOpen = ref(false)
 
-const parsedAutresAjouts = computed(() => {
-  return (props.entry.autresAjouts ?? []).map((line) => {
-    const idx = line.indexOf(' - ')
-    if (idx !== -1) {
-      return { label: line.slice(0, idx), text: line.slice(idx + 3) }
-    }
-    return { label: null, text: line }
-  })
-})
-
-const parsedCorrections = computed(() => {
-  return (props.entry.corrections ?? []).map((line) => {
-    const idx = line.indexOf(' - ')
-    if (idx !== -1) {
-      return { label: line.slice(0, idx), text: line.slice(idx + 3) }
-    }
-    return { label: null, text: line }
-  })
-})
+const parsedAutresAjouts = computed(() => parseListItems(props.entry.autresAjouts ?? []))
+const parsedCorrections = computed(() => parseListItems(props.entry.corrections ?? []))
 </script>
 
 <style scoped>

@@ -8,7 +8,11 @@ export default defineNitroPlugin((nitro) => {
 
   const poll = async () => {
     try {
-      const res = await $fetch('/api/generate', { method: 'POST' })
+      const secret = useRuntimeConfig().generateSecret
+      const res = await $fetch('/api/generate', {
+        method: 'POST',
+        headers: secret ? { authorization: `Bearer ${secret}` } : {},
+      })
       const { generated } = res as any
       if (generated > 0) {
         console.log(`[cron] ${generated} release note(s) generee(s)`)
@@ -19,16 +23,10 @@ export default defineNitroPlugin((nitro) => {
     }
   }
 
-  let interval: ReturnType<typeof setInterval>
-
-  nitro.hooks.hook('request', () => {
-    if (!interval) {
-      interval = setInterval(poll, POLL_INTERVAL)
-      // Premier check 10s apres le boot
-      setTimeout(poll, 10_000)
-      console.log(`[cron] Poll actif toutes les ${POLL_INTERVAL / 1000}s`)
-    }
-  })
+  const interval = setInterval(poll, POLL_INTERVAL)
+  // Premier check 10s apres le boot
+  setTimeout(poll, 10_000)
+  console.log(`[cron] Poll actif toutes les ${POLL_INTERVAL / 1000}s`)
 
   nitro.hooks.hook('close', () => {
     if (interval) clearInterval(interval)

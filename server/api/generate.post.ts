@@ -4,6 +4,11 @@ import Anthropic from '@anthropic-ai/sdk'
 const DB_ID = '134b85ab6efc802c9f61c8f2aa250968'
 const PROMPT_PAGE_ID = '32eb85ab6efc81098ebeeadfca7afbf9'
 
+// Rate limiting: max 5 requests per minute
+const rateLimitMap = new Map<string, number[]>()
+const RATE_LIMIT_WINDOW = 60_000
+const RATE_LIMIT_MAX = 5
+
 async function getPromptFromNotion(notion: Client): Promise<string> {
   const blocks = await notion.blocks.children.list({ block_id: PROMPT_PAGE_ID })
   return blocks.results
@@ -80,7 +85,28 @@ Genere le contenu "Quoi de neuf" au format JSON demande.`
     throw new Error('Claude n\'a pas retourne de JSON valide')
   }
 
-  return JSON.parse(jsonMatch[0])
+  const parsed = JSON.parse(jsonMatch[0])
+
+  // Validate required fields
+  if (typeof parsed.titre !== 'string' || !parsed.titre.trim()) {
+    throw new Error('Champ "titre" manquant ou invalide dans la réponse Claude')
+  }
+  if (typeof parsed.description !== 'string') {
+    throw new Error('Champ "description" manquant ou invalide dans la réponse Claude')
+  }
+  if (!Array.isArray(parsed.tags)) {
+    parsed.tags = []
+  }
+
+  return {
+    titre: parsed.titre.slice(0, 500),
+    description: (parsed.description ?? '').slice(0, 2000),
+    autres_ajouts: (parsed.autres_ajouts ?? '').slice(0, 2000),
+    corrections: (parsed.corrections ?? '').slice(0, 2000),
+    tags: parsed.tags.filter((t: unknown) => typeof t === 'string').slice(0, 10),
+    cta_texte: (parsed.cta_texte ?? '').slice(0, 200),
+    cta_lien: (parsed.cta_lien ?? '').slice(0, 500),
+  }
 }
 
 function toRichText(text: string) {
@@ -90,8 +116,28 @@ function toRichText(text: string) {
 
 export default defineEventHandler(async (event) => {
   const config = useRuntimeConfig(event)
-  const notionKey = config.notionApiKey || process.env.NOTION_API_KEY
-  const anthropicKey = config.anthropicApiKey || process.env.ANTHROPIC_API_KEY
+
+  // Auth: require Bearer token matching GENERATE_SECRET
+  const secret = config.generateSecret
+  if (secret) {
+    const auth = getHeader(event, 'authorization')
+    if (!auth || auth !== `Bearer ${secret}`) {
+      throw createError({ statusCode: 401, message: 'Unauthorized' })
+    }
+  }
+
+  // Rate limiting by IP
+  const ip = getHeader(event, 'x-forwarded-for') || getRequestIP(event) || 'unknown'
+  const now = Date.now()
+  const timestamps = rateLimitMap.get(ip)?.filter(t => now - t < RATE_LIMIT_WINDOW) ?? []
+  if (timestamps.length >= RATE_LIMIT_MAX) {
+    throw createError({ statusCode: 429, message: 'Too many requests. Try again later.' })
+  }
+  timestamps.push(now)
+  rateLimitMap.set(ip, timestamps)
+
+  const notionKey = config.notionApiKey
+  const anthropicKey = config.anthropicApiKey
 
   if (!notionKey || !anthropicKey) {
     throw createError({
@@ -148,7 +194,7 @@ export default defineEventHandler(async (event) => {
             multi_select: content.tags.map((tag) => ({ name: tag })),
           },
           'CTA Texte': { rich_text: toRichText(content.cta_texte) },
-          'CTA Lien': { url: content.cta_lien || null },
+          'CTA Lien': { url: content.cta_lien && /^https?:\/\//.test(content.cta_lien) ? content.cta_lien : null },
           'Statut Quoi de neuf': { select: { name: 'Draft' } },
         },
       })

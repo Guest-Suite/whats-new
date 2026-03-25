@@ -11,8 +11,6 @@
           </svg>
           <div class="header__brand-text">
             <span class="header__name">Guest Suite</span>
-            <span class="header__sep header__hide-mobile">/</span>
-            <span class="header__sub header__hide-mobile">What's new</span>
           </div>
         </div>
         <div class="header__actions">

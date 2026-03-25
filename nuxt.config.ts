@@ -3,6 +3,7 @@ export default defineNuxtConfig({
 
   runtimeConfig: {
     notionApiKey: process.env.NOTION_API_KEY,
+    anthropicApiKey: process.env.ANTHROPIC_API_KEY,
   },
 
   devServer: {

@@ -12,6 +12,7 @@ const MOCK_DATA = [
     tags: ['Nouveau'],
     audience: 'Public',
     corrections: [],
+    autresAjouts: [],
   },
   {
     id: 'mock-2',
@@ -24,6 +25,7 @@ const MOCK_DATA = [
     tags: ['Nouveau', 'Intégration'],
     audience: 'Public',
     corrections: [],
+    autresAjouts: [],
   },
   {
     id: 'mock-3',
@@ -40,6 +42,9 @@ const MOCK_DATA = [
       'Avis Google - Bug sur les réponses aux avis en attente',
       'Réputation - Le filtre par note ne fonctionnait pas après une réponse',
     ],
+    autresAjouts: [
+      'Enquêtes - Recherchez par nom d\'établissement pour retrouver vos enquêtes plus vite',
+    ],
   },
   {
     id: 'mock-4',
@@ -54,6 +59,7 @@ const MOCK_DATA = [
     corrections: [
       'Campagnes - Correction d\'un bug sur l\'envoi des campagnes SMS',
     ],
+    autresAjouts: [],
   },
   {
     id: 'mock-5',
@@ -66,6 +72,7 @@ const MOCK_DATA = [
     tags: ['Amélioration'],
     audience: 'Public',
     corrections: [],
+    autresAjouts: [],
   },
 ]
 
@@ -106,6 +113,11 @@ export default defineEventHandler(async (event) => {
         ctaLien: props['CTA Lien']?.url ?? null,
         tags: props['Tags Quoi de neuf']?.multi_select?.map((t: any) => t.name) ?? [],
         corrections: (props['Corrections Quoi de neuf']?.rich_text ?? [])
+          .map((rt: any) => rt.plain_text)
+          .join('')
+          .split('\n')
+          .filter((l: string) => l.trim()),
+        autresAjouts: (props['Autres ajouts Quoi de neuf']?.rich_text ?? [])
           .map((rt: any) => rt.plain_text)
           .join('')
           .split('\n')

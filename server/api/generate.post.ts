@@ -52,7 +52,6 @@ async function generateContent(
 ): Promise<{
   titre: string
   description: string
-  autres_ajouts: string
   corrections: string
   tags: string[]
   cta_texte: string
@@ -101,7 +100,6 @@ Genere le contenu "Quoi de neuf" au format JSON demande.`
   return {
     titre: parsed.titre.slice(0, 500),
     description: (parsed.description ?? '').slice(0, 2000),
-    autres_ajouts: (parsed.autres_ajouts ?? '').slice(0, 2000),
     corrections: (parsed.corrections ?? '').slice(0, 2000),
     tags: parsed.tags.filter((t: unknown) => typeof t === 'string').slice(0, 10),
     cta_texte: (parsed.cta_texte ?? '').slice(0, 200),
@@ -149,25 +147,39 @@ export default defineEventHandler(async (event) => {
   const notion = new Client({ auth: notionKey })
   const anthropic = new Anthropic({ apiKey: anthropicKey })
 
+  // Optional: n8n can pass a specific page ID to generate for
+  const body = await readBody(event).catch(() => ({}))
+  const targetPageId = typeof body?.pageId === 'string' ? body.pageId.trim() : null
+
   // 1. Lire le prompt depuis Notion
   const systemPrompt = await getPromptFromNotion(notion)
 
-  // 2. Query les entrees "A generer"
-  const response = await notion.databases.query({
-    database_id: DB_ID,
-    filter: {
-      property: 'Statut Quoi de neuf',
-      select: { equals: 'À générer' },
-    },
-  })
+  // 2. Query les entrees "A generer" (or a specific page if pageId is provided)
+  let pages: any[]
 
-  if (!response.results.length) {
+  if (targetPageId) {
+    // n8n sends a specific page — fetch it directly
+    const page = await notion.pages.retrieve({ page_id: targetPageId })
+    pages = [page]
+  }
+  else {
+    const response = await notion.databases.query({
+      database_id: DB_ID,
+      filter: {
+        property: 'Statut Quoi de neuf',
+        select: { equals: 'À générer' },
+      },
+    })
+    pages = response.results
+  }
+
+  if (!pages.length) {
     return { generated: 0, message: 'Aucune entree a generer' }
   }
 
   const results = []
 
-  for (const page of response.results) {
+  for (const page of pages) {
     const props = (page as any).properties
     const nom = props.Nom?.title?.[0]?.plain_text || 'Sans nom'
     const fonctionnalites = extractRichText(props['Listing des fonctionnalités'])
@@ -188,7 +200,6 @@ export default defineEventHandler(async (event) => {
         properties: {
           'Titre Quoi de neuf': { rich_text: toRichText(content.titre) },
           'Description Quoi de neuf': { rich_text: toRichText(content.description) },
-          'Autres ajouts Quoi de neuf': { rich_text: toRichText(content.autres_ajouts) },
           'Corrections Quoi de neuf': { rich_text: toRichText(content.corrections) },
           'Tags Quoi de neuf': {
             multi_select: content.tags.map((tag) => ({ name: tag })),
@@ -208,7 +219,7 @@ export default defineEventHandler(async (event) => {
 
   return {
     generated: results.filter((r) => r.status === 'generated').length,
-    total: response.results.length,
+    total: pages.length,
     results,
   }
 })

@@ -211,6 +211,19 @@ export default defineEventHandler(async (event) => {
       })
 
       results.push({ id: page.id, nom, status: 'generated', content })
+
+      // Slack notification
+      const slackWebhookUrl = config.slackWebhookUrl
+      if (slackWebhookUrl) {
+        const notionUrl = `https://www.notion.so/guest-suite/${page.id.replace(/-/g, '')}`
+        await fetch(slackWebhookUrl, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            text: `:sparkles: Le wording *Quoi de neuf* pour *${nom}* a été généré. Merci de le vérifier : ${notionUrl}`,
+          }),
+        }).catch(() => {}) // ne bloque pas si Slack est indisponible
+      }
     }
     catch (err: any) {
       results.push({ id: page.id, nom, status: 'error', error: err.message })

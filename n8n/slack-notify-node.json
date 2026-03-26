@@ -1,0 +1,28 @@
+{
+  "nodes": [
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://hooks.slack.com/services/REMPLACER/PAR/VOTRE_WEBHOOK",
+        "sendBody": true,
+        "contentType": "json",
+        "specifyBody": "keypair",
+        "bodyParameters": {
+          "parameters": [
+            {
+              "name": "text",
+              "value": "=:sparkles: Le wording *Quoi de neuf* pour *{{ $json.nom }}* a été généré. Merci de le vérifier : https://www.notion.so/guest-suite/{{ $json.pageId.split('-').join('') }}"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "slack-notify",
+      "name": "Notifier Slack",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [1000, 0]
+    }
+  ],
+  "connections": {}
+}

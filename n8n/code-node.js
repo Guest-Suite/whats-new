@@ -99,10 +99,10 @@ await this.helpers.request({
   },
   body: {
     properties: {
-      'Titre Quoi de neuf': { rich_text: toRichText(content.titre) },
-      'Description Quoi de neuf': { rich_text: toRichText(content.description) },
-      'Corrections Quoi de neuf': { rich_text: toRichText(content.corrections) },
-      'Tags Quoi de neuf': { multi_select: content.tags.map(tag => ({ name: tag })) },
+      'Titre Quoi de neuf ?': { rich_text: toRichText(content.titre) },
+      'Description Quoi de neuf ?': { rich_text: toRichText(content.description) },
+      'Corrections Quoi de neuf ?': { rich_text: toRichText(content.corrections) },
+      'Tags Quoi de neuf ?': { multi_select: content.tags.map(tag => ({ name: tag })) },
       'CTA Texte': { rich_text: toRichText(content.cta_texte) },
       'CTA Lien': { url: content.cta_lien && /^https?:\/\//.test(content.cta_lien) ? content.cta_lien : null },
       'Statut Quoi de neuf': { select: { name: 'Draft' } },

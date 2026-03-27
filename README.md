@@ -37,11 +37,39 @@ Les entrées sont gérées dans la base de données Notion :
 | Statut | Select | `Draft` (non publié) / `Published` (visible) |
 | Audience | Select | `Public` / `Internal` |
 
+## Génération automatique (n8n)
+
+La génération des contenus "Quoi de neuf" est pilotée par un workflow n8n (voir `n8n/workflow.json`).
+
+### Fonctionnement
+
+1. **Trigger** : n8n poll la base Notion toutes les 5 minutes
+2. **Condition** : filtre les entrées avec `Statut Quoi de neuf = À générer` dont les colonnes "Listing des fonctionnalités" ou "Résolution de Bugs" sont remplies
+3. **Action** : appel `POST /api/generate` avec le `pageId` de chaque entrée éligible
+4. **Résultat** : Claude génère titre, description, corrections, tags et CTA → écrit dans Notion, passe le statut en "Draft"
+
+### Setup n8n
+
+1. Importer `n8n/workflow.json` dans n8n
+2. Configurer les credentials Notion dans n8n
+3. Définir les variables d'environnement n8n :
+   - `WHATS_NEW_BASE_URL` : URL de l'app déployée (ex: `https://whats-new.netlify.app`)
+   - `GENERATE_SECRET` : même valeur que la variable côté Netlify
+
+### API generate
+
+`POST /api/generate` accepte un body JSON optionnel :
+- `{ "pageId": "notion-page-id" }` — génère pour une page spécifique
+- `{}` (vide) — génère pour toutes les entrées "À générer"
+
+Authentification : header `Authorization: Bearer <GENERATE_SECRET>`.
+
 ## Variables d'environnement
 
 ```env
 NOTION_API_KEY=      # Token de l'intégration Notion "API Produit"
-NOTION_DATABASE_ID=  # ID de la base de données changelog Notion
+ANTHROPIC_API_KEY=   # Clé API Anthropic pour la génération de contenu
+GENERATE_SECRET=     # Secret Bearer pour POST /api/generate (partagé avec n8n)
 ```
 
 ## Développement local
@@ -56,4 +84,4 @@ npm run dev            # http://localhost:3005
 
 Le site est déployé automatiquement sur Netlify à chaque push sur `main`.
 
-Les variables d'environnement `NOTION_API_KEY` et `NOTION_DATABASE_ID` sont à configurer dans les paramètres du site Netlify.
+Les variables d'environnement `NOTION_API_KEY`, `ANTHROPIC_API_KEY` et `GENERATE_SECRET` sont à configurer dans les paramètres du site Netlify.

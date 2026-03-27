@@ -4,6 +4,11 @@ import Anthropic from '@anthropic-ai/sdk'
 const DB_ID = '134b85ab6efc802c9f61c8f2aa250968'
 const PROMPT_PAGE_ID = '32eb85ab6efc81098ebeeadfca7afbf9'
 
+// Rate limiting: max 5 requests per minute
+const rateLimitMap = new Map<string, number[]>()
+const RATE_LIMIT_WINDOW = 60_000
+const RATE_LIMIT_MAX = 5
+
 async function getPromptFromNotion(notion: Client): Promise<string> {
   const blocks = await notion.blocks.children.list({ block_id: PROMPT_PAGE_ID })
   return blocks.results
@@ -47,7 +52,6 @@ async function generateContent(
 ): Promise<{
   titre: string
   description: string
-  autres_ajouts: string
   corrections: string
   tags: string[]
   cta_texte: string
@@ -80,7 +84,27 @@ Genere le contenu "Quoi de neuf" au format JSON demande.`
     throw new Error('Claude n\'a pas retourne de JSON valide')
   }
 
-  return JSON.parse(jsonMatch[0])
+  const parsed = JSON.parse(jsonMatch[0])
+
+  // Validate required fields
+  if (typeof parsed.titre !== 'string' || !parsed.titre.trim()) {
+    throw new Error('Champ "titre" manquant ou invalide dans la réponse Claude')
+  }
+  if (typeof parsed.description !== 'string') {
+    throw new Error('Champ "description" manquant ou invalide dans la réponse Claude')
+  }
+  if (!Array.isArray(parsed.tags)) {
+    parsed.tags = []
+  }
+
+  return {
+    titre: parsed.titre.slice(0, 500),
+    description: (parsed.description ?? '').slice(0, 2000),
+    corrections: (parsed.corrections ?? '').slice(0, 2000),
+    tags: parsed.tags.filter((t: unknown) => typeof t === 'string').slice(0, 10),
+    cta_texte: (parsed.cta_texte ?? '').slice(0, 200),
+    cta_lien: (parsed.cta_lien ?? '').slice(0, 500),
+  }
 }
 
 function toRichText(text: string) {
@@ -90,8 +114,28 @@ function toRichText(text: string) {
 
 export default defineEventHandler(async (event) => {
   const config = useRuntimeConfig(event)
-  const notionKey = config.notionApiKey || process.env.NOTION_API_KEY
-  const anthropicKey = config.anthropicApiKey || process.env.ANTHROPIC_API_KEY
+
+  // Auth: require Bearer token matching GENERATE_SECRET
+  const secret = config.generateSecret
+  if (secret) {
+    const auth = getHeader(event, 'authorization')
+    if (!auth || auth !== `Bearer ${secret}`) {
+      throw createError({ statusCode: 401, message: 'Unauthorized' })
+    }
+  }
+
+  // Rate limiting by IP
+  const ip = getHeader(event, 'x-forwarded-for') || getRequestIP(event) || 'unknown'
+  const now = Date.now()
+  const timestamps = rateLimitMap.get(ip)?.filter(t => now - t < RATE_LIMIT_WINDOW) ?? []
+  if (timestamps.length >= RATE_LIMIT_MAX) {
+    throw createError({ statusCode: 429, message: 'Too many requests. Try again later.' })
+  }
+  timestamps.push(now)
+  rateLimitMap.set(ip, timestamps)
+
+  const notionKey = config.notionApiKey
+  const anthropicKey = config.anthropicApiKey
 
   if (!notionKey || !anthropicKey) {
     throw createError({
@@ -103,25 +147,39 @@ export default defineEventHandler(async (event) => {
   const notion = new Client({ auth: notionKey })
   const anthropic = new Anthropic({ apiKey: anthropicKey })
 
+  // Optional: n8n can pass a specific page ID to generate for
+  const body = await readBody(event).catch(() => ({}))
+  const targetPageId = typeof body?.pageId === 'string' ? body.pageId.trim() : null
+
   // 1. Lire le prompt depuis Notion
   const systemPrompt = await getPromptFromNotion(notion)
 
-  // 2. Query les entrees "A generer"
-  const response = await notion.databases.query({
-    database_id: DB_ID,
-    filter: {
-      property: 'Statut Quoi de neuf',
-      select: { equals: 'À générer' },
-    },
-  })
+  // 2. Query les entrees "A generer" (or a specific page if pageId is provided)
+  let pages: any[]
 
-  if (!response.results.length) {
+  if (targetPageId) {
+    // n8n sends a specific page — fetch it directly
+    const page = await notion.pages.retrieve({ page_id: targetPageId })
+    pages = [page]
+  }
+  else {
+    const response = await notion.databases.query({
+      database_id: DB_ID,
+      filter: {
+        property: 'Statut Quoi de neuf',
+        select: { equals: 'À générer' },
+      },
+    })
+    pages = response.results
+  }
+
+  if (!pages.length) {
     return { generated: 0, message: 'Aucune entree a generer' }
   }
 
   const results = []
 
-  for (const page of response.results) {
+  for (const page of pages) {
     const props = (page as any).properties
     const nom = props.Nom?.title?.[0]?.plain_text || 'Sans nom'
     const fonctionnalites = extractRichText(props['Listing des fonctionnalités'])
@@ -142,18 +200,30 @@ export default defineEventHandler(async (event) => {
         properties: {
           'Titre Quoi de neuf': { rich_text: toRichText(content.titre) },
           'Description Quoi de neuf': { rich_text: toRichText(content.description) },
-          'Autres ajouts Quoi de neuf': { rich_text: toRichText(content.autres_ajouts) },
           'Corrections Quoi de neuf': { rich_text: toRichText(content.corrections) },
           'Tags Quoi de neuf': {
             multi_select: content.tags.map((tag) => ({ name: tag })),
           },
           'CTA Texte': { rich_text: toRichText(content.cta_texte) },
-          'CTA Lien': { url: content.cta_lien || null },
+          'CTA Lien': { url: content.cta_lien && /^https?:\/\//.test(content.cta_lien) ? content.cta_lien : null },
           'Statut Quoi de neuf': { select: { name: 'Draft' } },
         },
       })
 
       results.push({ id: page.id, nom, status: 'generated', content })
+
+      // Slack notification
+      const slackWebhookUrl = config.slackWebhookUrl
+      if (slackWebhookUrl) {
+        const notionUrl = `https://www.notion.so/guest-suite/${page.id.replace(/-/g, '')}`
+        await fetch(slackWebhookUrl, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            text: `:sparkles: Le wording *Quoi de neuf* pour *${nom}* a été généré. Merci de le vérifier : ${notionUrl}`,
+          }),
+        }).catch(() => {}) // ne bloque pas si Slack est indisponible
+      }
     }
     catch (err: any) {
       results.push({ id: page.id, nom, status: 'error', error: err.message })
@@ -162,7 +232,7 @@ export default defineEventHandler(async (event) => {
 
   return {
     generated: results.filter((r) => r.status === 'generated').length,
-    total: response.results.length,
+    total: pages.length,
     results,
   }
 })

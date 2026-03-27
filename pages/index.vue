@@ -20,7 +20,7 @@
             </svg>
             <span class="header__pres-label">Présentation</span>
           </button>
-          <a href="https://app.guest-suite.com" target="_blank" class="header__cta">
+          <a href="https://app.guest-suite.com" target="_blank" rel="noopener noreferrer" class="header__cta">
             <span class="header__cta-label">Accéder à l'app</span>
             <svg width="11" height="11" viewBox="0 0 11 11" fill="none">
               <path d="M1.5 9.5L9.5 1.5M9.5 1.5H4M9.5 1.5V7" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
@@ -130,7 +130,7 @@
           </svg>
           <span>© {{ year }} Guest Suite</span>
         </div>
-        <a href="https://guest-suite.com" target="_blank" class="footer__link">guest-suite.com</a>
+        <a href="https://guest-suite.com" target="_blank" rel="noopener noreferrer" class="footer__link">guest-suite.com</a>
       </div>
     </footer>
 
@@ -222,6 +222,7 @@
               v-if="flatEntries[presIndex].ctaTexte && flatEntries[presIndex].ctaLien"
               :href="presCtaUrl(flatEntries[presIndex])"
               target="_blank"
+              rel="noopener noreferrer"
               class="entry__cta pres-cta"
             >
               {{ flatEntries[presIndex].ctaTexte }}
@@ -381,30 +382,14 @@ function handleOverlayClick(e: MouseEvent) {
   }
 }
 
-const APP_BASE = 'https://app.guest-suite.com'
-
-const TAG_KEYS: Record<string, string> = {
-  'Nouveau':      'new',
-  'Amélioration': 'improve',
-  'Intégration':  'integration',
-  'Performance':  'perf',
-}
-const presTagKey = (tag: string) => TAG_KEYS[tag] ?? 'default'
+import { tagKey as presTagKey, buildCtaUrl, parseListItems } from '~/utils/changelog'
 
 function presCtaUrl(entry: any) {
-  const l = entry.ctaLien ?? ''
-  return l.startsWith('http') ? l : `${APP_BASE}${l}`
+  return buildCtaUrl(entry.ctaLien)
 }
 
 const parsedPresCorrections = computed(() => {
-  const corrections = flatEntries.value[presIndex.value]?.corrections ?? []
-  return corrections.map((line: string) => {
-    const idx = line.indexOf(' - ')
-    if (idx !== -1) {
-      return { label: line.slice(0, idx), text: line.slice(idx + 3) }
-    }
-    return { label: null, text: line }
-  })
+  return parseListItems(flatEntries.value[presIndex.value]?.corrections ?? [])
 })
 
 function handleKeydown(e: KeyboardEvent) {
@@ -432,16 +417,20 @@ function exitPresentation() {
   document.body.style.overflow = ''
 }
 
+const handleScroll = () => { scrolled.value = window.scrollY > 20 }
+const checkMobile = () => { isMobile.value = window.innerWidth <= 580 }
+
 onMounted(() => {
-  window.addEventListener('scroll', () => { scrolled.value = window.scrollY > 20 }, { passive: true })
+  window.addEventListener('scroll', handleScroll, { passive: true })
   window.addEventListener('keydown', handleKeydown)
-  const checkMobile = () => { isMobile.value = window.innerWidth <= 580 }
   checkMobile()
   window.addEventListener('resize', checkMobile, { passive: true })
 })
 
 onUnmounted(() => {
+  window.removeEventListener('scroll', handleScroll)
   window.removeEventListener('keydown', handleKeydown)
+  window.removeEventListener('resize', checkMobile)
   document.body.style.overflow = ''
 })
 

@@ -1,0 +1,170 @@
+{
+  "name": "Quoi de neuf — Auto-génération",
+  "nodes": [
+    {
+      "parameters": {
+        "rule": {
+          "interval": [
+            {
+              "field": "minutes",
+              "minutesInterval": 5
+            }
+          ]
+        }
+      },
+      "id": "trigger",
+      "name": "Poll toutes les 5 min",
+      "type": "n8n-nodes-base.scheduleTrigger",
+      "typeVersion": 1.2,
+      "position": [0, 0]
+    },
+    {
+      "parameters": {
+        "resource": "databasePage",
+        "operation": "getAll",
+        "returnAll": true,
+        "databaseId": {
+          "__rl": true,
+          "value": "134b85ab6efc802c9f61c8f2aa250968",
+          "mode": "id"
+        },
+        "filterType": "string",
+        "filterJson": "{ \"and\": [ { \"property\": \"Statut Quoi de neuf\", \"select\": { \"equals\": \"À générer\" } } ] }"
+      },
+      "id": "notion-query",
+      "name": "Query Notion DB — À générer",
+      "type": "n8n-nodes-base.notion",
+      "typeVersion": 2.2,
+      "position": [250, 0],
+      "credentials": {
+        "notionApi": {
+          "id": "NOTION_CREDENTIAL_ID",
+          "name": "Notion — What's New"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict"
+          },
+          "conditions": [
+            {
+              "id": "cond-fonctionnalites",
+              "leftValue": "={{ $json.properties['Listing des fonctionnalités'].rich_text.map(rt => rt.plain_text).join('') }}",
+              "rightValue": "",
+              "operator": {
+                "type": "string",
+                "operation": "notEmpty"
+              }
+            },
+            {
+              "id": "cond-bugs",
+              "leftValue": "={{ $json.properties['Résolution de Bugs'].rich_text.map(rt => rt.plain_text).join('') }}",
+              "rightValue": "",
+              "operator": {
+                "type": "string",
+                "operation": "notEmpty"
+              }
+            }
+          ],
+          "combinator": "or"
+        }
+      },
+      "id": "filter-filled",
+      "name": "Colonnes fonctionnalités OU bugs remplies ?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2,
+      "position": [500, 0]
+    },
+    {
+      "parameters": {
+        "jsCode": "// ===== CONFIG =====\nconst PROMPT_PAGE_ID = '32eb85ab6efc81098ebeeadfca7afbf9';\nconst ANTHROPIC_API_KEY = 'VOTRE_CLE_ANTHROPIC_ICI';\nconst NOTION_API_KEY = 'VOTRE_CLE_NOTION_ICI';\n\nif (!ANTHROPIC_API_KEY) throw new Error('ANTHROPIC_API_KEY manquante');\nif (!NOTION_API_KEY) throw new Error('NOTION_API_KEY manquante');\n\n// ===== HELPERS =====\nfunction extractRichText(prop) {\n  return (prop?.rich_text ?? []).map(rt => rt.plain_text).join('');\n}\n\nfunction toRichText(text) {\n  if (!text) return [];\n  return [{ text: { content: text } }];\n}\n\n// ===== 1. LIRE LE PROMPT DEPUIS NOTION =====\nconst blocksResponse = await this.helpers.request({\n  method: 'GET',\n  url: `https://api.notion.com/v1/blocks/${PROMPT_PAGE_ID}/children?page_size=100`,\n  headers: {\n    'Authorization': `Bearer ${NOTION_API_KEY}`,\n    'Notion-Version': '2022-06-28',\n  },\n  json: true,\n});\n\nconst systemPrompt = blocksResponse.results\n  .map(block => {\n    if (block.type === 'paragraph')\n      return block.paragraph.rich_text.map(rt => rt.plain_text).join('');\n    if (block.type === 'heading_1')\n      return `# ${block.heading_1.rich_text.map(rt => rt.plain_text).join('')}`;\n    if (block.type === 'heading_2')\n      return `## ${block.heading_2.rich_text.map(rt => rt.plain_text).join('')}`;\n    if (block.type === 'heading_3')\n      return `### ${block.heading_3.rich_text.map(rt => rt.plain_text).join('')}`;\n    if (block.type === 'bulleted_list_item')\n      return `- ${block.bulleted_list_item.rich_text.map(rt => rt.plain_text).join('')}`;\n    if (block.type === 'code')\n      return `\\`\\`\\`\\n${block.code.rich_text.map(rt => rt.plain_text).join('')}\\n\\`\\`\\``;\n    if (block.type === 'divider') return '---';\n    return '';\n  })\n  .filter(Boolean)\n  .join('\\n');\n\n// ===== 2. EXTRAIRE LES INPUTS DE LA PAGE =====\nconst page = $input.first().json;\nconst pageId = page.id;\nconst nom = page.properties.Nom?.title?.[0]?.plain_text || 'Sans nom';\nconst fonctionnalites = extractRichText(page.properties['Listing des fonctionnalités']);\nconst bugs = extractRichText(page.properties['Résolution de Bugs']);\n\nconst userMessage = `Voici les inputs pour cette release :\\n\\n## Listing des fonctionnalites\\n${fonctionnalites || '(aucune fonctionnalite listee)'}\\n\\n## Resolution de bugs\\n${bugs || '(aucun bug corrige)'}\\n\\nGenere le contenu \"Quoi de neuf\" au format JSON demande.`;\n\n// ===== 3. APPEL CLAUDE =====\nconst claudeData = await this.helpers.request({\n  method: 'POST',\n  url: 'https://api.anthropic.com/v1/messages',\n  headers: {\n    'x-api-key': ANTHROPIC_API_KEY,\n    'anthropic-version': '2023-06-01',\n    'Content-Type': 'application/json',\n  },\n  body: {\n    model: 'claude-sonnet-4-20250514',\n    max_tokens: 1024,\n    system: systemPrompt,\n    messages: [{ role: 'user', content: userMessage }],\n  },\n  json: true,\n});\n\nconst responseText = claudeData.content\n  .filter(block => block.type === 'text')\n  .map(block => block.text)\n  .join('');\n\nconst jsonMatch = responseText.match(/\\{[\\s\\S]*\\}/);\nif (!jsonMatch) throw new Error(`Claude n'a pas retourne de JSON valide pour \"${nom}\"`);\n\nconst parsed = JSON.parse(jsonMatch[0]);\n\nif (typeof parsed.titre !== 'string' || !parsed.titre.trim()) {\n  throw new Error(`Champ \"titre\" manquant pour \"${nom}\"`);\n}\n\nconst content = {\n  titre: parsed.titre.slice(0, 500),\n  description: (parsed.description ?? '').slice(0, 2000),\n  autres_ajouts: (parsed.autres_ajouts ?? '').slice(0, 2000),\n  corrections: (parsed.corrections ?? '').slice(0, 2000),\n  tags: (Array.isArray(parsed.tags) ? parsed.tags : []).filter(t => typeof t === 'string').slice(0, 10),\n  cta_texte: (parsed.cta_texte ?? '').slice(0, 200),\n  cta_lien: (parsed.cta_lien ?? '').slice(0, 500),\n};\n\n// ===== 4. ECRIRE DANS NOTION =====\nawait this.helpers.request({\n  method: 'PATCH',\n  url: `https://api.notion.com/v1/pages/${pageId}`,\n  headers: {\n    'Authorization': `Bearer ${NOTION_API_KEY}`,\n    'Notion-Version': '2022-06-28',\n    'Content-Type': 'application/json',\n  },\n  body: {\n    properties: {\n      'Titre Quoi de neuf': { rich_text: toRichText(content.titre) },\n      'Description Quoi de neuf': { rich_text: toRichText(content.description) },\n      'Autres ajouts Quoi de neuf': { rich_text: toRichText(content.autres_ajouts) },\n      'Corrections Quoi de neuf': { rich_text: toRichText(content.corrections) },\n      'Tags Quoi de neuf': { multi_select: content.tags.map(tag => ({ name: tag })) },\n      'CTA Texte': { rich_text: toRichText(content.cta_texte) },\n      'CTA Lien': { url: content.cta_lien && /^https?:\\/\\//.test(content.cta_lien) ? content.cta_lien : null },\n      'Statut Quoi de neuf': { select: { name: 'Draft' } },\n    },\n  },\n  json: true,\n});\n\nreturn [{ json: { pageId, nom, status: 'generated', content } }];\n"
+      },
+      "id": "code-generate",
+      "name": "Générer + écrire dans Notion",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [750, 0]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://hooks.slack.com/services/REMPLACER/PAR/VOTRE_WEBHOOK",
+        "sendBody": true,
+        "contentType": "json",
+        "specifyBody": "keypair",
+        "bodyParameters": {
+          "parameters": [
+            {
+              "name": "text",
+              "value": "=:sparkles: Le wording *Quoi de neuf* pour *{{ $json.nom }}* a été généré. Merci de le vérifier : https://www.notion.so/guest-suite/{{ $json.pageId.split('-').join('') }}"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "slack-notify",
+      "name": "Notifier Slack",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [1000, 0]
+    }
+  ],
+  "connections": {
+    "Poll toutes les 5 min": {
+      "main": [
+        [
+          {
+            "node": "Query Notion DB — À générer",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Query Notion DB — À générer": {
+      "main": [
+        [
+          {
+            "node": "Colonnes fonctionnalités OU bugs remplies ?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Colonnes fonctionnalités OU bugs remplies ?": {
+      "main": [
+        [
+          {
+            "node": "Générer + écrire dans Notion",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Générer + écrire dans Notion": {
+      "main": [
+        [
+          {
+            "node": "Notifier Slack",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "settings": {
+    "executionOrder": "v1"
+  },
+  "meta": {
+    "templateCredsSetupCompleted": true,
+    "instanceId": ""
+  }
+}

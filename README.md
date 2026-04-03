@@ -1,13 +1,14 @@
 # Quoi de neuf ? — Guest Suite Changelog
 
-Page publique de changelog pour Guest Suite, alimentée par Notion et déployée sur Netlify.
+Page publique de changelog pour Guest Suite, alimentée par Notion avec cache de fichier et serveur Node.js long-running.
 
 ## Stack
 
-- **Nuxt 3** + Vue 3
+- **Nuxt 3** + Vue 3 (SSR)
 - **Tailwind CSS**
 - **Notion** comme CMS (base de données changelog)
-- **Netlify** pour le déploiement (SSR via Netlify Functions)
+- **Node.js** serveur long-running avec Nitro (cron interne + API)
+- **Claude AI** pour la génération automatique du contenu (release notes)
 
 ## Fonctionnalités
 
@@ -26,50 +27,45 @@ Les entrées sont gérées dans la base de données Notion :
 
 | Propriété | Type | Description |
 |-----------|------|-------------|
-| Titre | Texte | Titre de la feature |
-| Description | Texte | Description client (2-3 phrases) |
-| Tags | Select | `Nouveau` / `Amélioration` / `Intégration` / `Performance` |
+| Titre Quoi de neuf | Texte | Titre de la feature |
+| Description Quoi de neuf | Texte | Description client (2-3 phrases) |
+| Tags Quoi de neuf | Multi-select | `Nouveau` / `Amélioration` / `Intégration` / `Performance` |
 | Date | Date | Date de release (ISO) |
 | Média | URL | Image ou GIF illustrant la feature |
 | CTA Texte | Texte | Libellé du bouton d'action |
 | CTA Lien | URL | Lien du bouton (relatif `/app/...` ou absolu) |
-| Corrections | Texte | Liste de bugs résolus, un par ligne, format `Module — Description` |
-| Statut | Select | `Draft` (non publié) / `Published` (visible) |
-| Audience | Select | `Public` / `Internal` |
+| Corrections Quoi de neuf | Texte | Liste de bugs résolus, un par ligne |
+| Autres ajouts Quoi de neuf | Texte | Autres items ou améliorations |
+| Statut Quoi de neuf | Select | `À générer` / `Publié` |
+| Nom | Texte | Nom (fallback si Titre Quoi de neuf vide) |
 
-## Génération automatique (n8n)
+## Architecture
 
-La génération des contenus "Quoi de neuf" est pilotée par un workflow n8n (voir `n8n/workflow.json`).
+Le projet repose sur un cron interne exécuté toutes les 5 minutes sur le serveur :
 
-### Fonctionnement
+```
+Cron (5 min)
+  ├─ POST /api/generate
+  │  └─ Déclenche la génération Claude des items "À générer"
+  ├─ Notion (SELECT "Publié")
+  │  └─ Récupère les items publiés depuis Notion
+  └─ Écriture atomique (rename)
+     └─ Écrit server/data/changelog.json avec les items
 
-1. **Trigger** : n8n poll la base Notion toutes les 5 minutes
-2. **Condition** : filtre les entrées avec `Statut Quoi de neuf = À générer` dont les colonnes "Listing des fonctionnalités" ou "Résolution de Bugs" sont remplies
-3. **Action** : appel `POST /api/generate` avec le `pageId` de chaque entrée éligible
-4. **Résultat** : Claude génère titre, description, corrections, tags et CTA → écrit dans Notion, passe le statut en "Draft"
+Frontend + Terraforming (app externe)
+  └─ GET /api/changelog.json
+     └─ Sert le fichier cache
+```
 
-### Setup n8n
-
-1. Importer `n8n/workflow.json` dans n8n
-2. Configurer les credentials Notion dans n8n
-3. Définir les variables d'environnement n8n :
-   - `WHATS_NEW_BASE_URL` : URL de l'app déployée (ex: `https://whats-new.netlify.app`)
-   - `GENERATE_SECRET` : même valeur que la variable côté Netlify
-
-### API generate
-
-`POST /api/generate` accepte un body JSON optionnel :
-- `{ "pageId": "notion-page-id" }` — génère pour une page spécifique
-- `{}` (vide) — génère pour toutes les entrées "À générer"
-
-Authentification : header `Authorization: Bearer <GENERATE_SECRET>`.
+Le cache persiste entre les redémarrages. En développement sans `ENABLE_CRON`, des données mock sont servies.
 
 ## Variables d'environnement
 
 ```env
-NOTION_API_KEY=      # Token de l'intégration Notion "API Produit"
-ANTHROPIC_API_KEY=   # Clé API Anthropic pour la génération de contenu
-GENERATE_SECRET=     # Secret Bearer pour POST /api/generate (partagé avec n8n)
+NOTION_API_KEY=      # Token de l'intégration Notion "API Produit" (requis)
+ANTHROPIC_API_KEY=   # Clé API Anthropic pour la génération de contenu (requis)
+ENABLE_CRON=         # Optionnel. Mettre à 1 pour activer le cron en dev (toujours actif en prod)
+DATA_DIR=            # REQUIS EN PRODUCTION. Chemin absolu vers le dossier de données persistant (ex: /var/data/whats-new). En dev, fallback sur server/data/ relatif au cwd.
 ```
 
 ## Développement local
@@ -82,6 +78,18 @@ npm run dev            # http://localhost:3005
 
 ## Déploiement
 
-Le site est déployé automatiquement sur Netlify à chaque push sur `main`.
+Le projet est déployé sur **Clever Cloud** comme une application Node.js long-running.
 
-Les variables d'environnement `NOTION_API_KEY`, `ANTHROPIC_API_KEY` et `GENERATE_SECRET` sont à configurer dans les paramètres du site Netlify.
+### Configuration requise
+
+1. **Runtime** : Node.js (app Clever Cloud de type Node)
+2. **Persistance** : [File System Bucket](https://developers.clever-cloud.com/doc/addons/fs-bucket/) monté sur `DATA_DIR` pour persister `changelog.json` entre les redéploiements
+3. **Variables d'environnement** : `NOTION_API_KEY`, `ANTHROPIC_API_KEY`, `DATA_DIR`, `GENERATE_SECRET`
+4. **Port** : variable `PORT` (Clever Cloud l'injecte automatiquement)
+
+### Processus
+
+Le cron démarre automatiquement au démarrage du serveur. Les logs indiquent :
+- `[cron] Skipped in dev (set ENABLE_CRON=1 to enable)` → cron désactivé en dev
+- `[cron] Poll actif toutes les 300s` → cron actif
+- `[cron] X item(s) ecrits dans changelog.json` → succès

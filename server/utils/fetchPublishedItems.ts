@@ -1,13 +1,12 @@
 import { Client } from '@notionhq/client'
+import type { ChangelogItem } from '../types/changelog'
 
 const DB_ID = '134b85ab6efc802c9f61c8f2aa250968'
 
-export default defineEventHandler(async (event) => {
-  const config = useRuntimeConfig(event)
-  const apiKey = config.notionApiKey
-
+export async function fetchPublishedItems(apiKey: string): Promise<ChangelogItem[]> {
   if (!apiKey) {
-    throw createError({ statusCode: 500, message: 'NOTION_API_KEY is required' })
+    console.warn('[fetchPublishedItems] NOTION_API_KEY manquante')
+    return []
   }
 
   const notion = new Client({ auth: apiKey })
@@ -41,6 +40,11 @@ export default defineEventHandler(async (event) => {
         .join('')
         .split('\n')
         .filter((l: string) => l.trim()),
-    }
+      autresAjouts: (props['Autres ajouts Quoi de neuf']?.rich_text ?? [])
+        .map((rt: any) => rt.plain_text)
+        .join('')
+        .split('\n')
+        .filter((l: string) => l.trim()),
+    } satisfies ChangelogItem
   })
-})
+}

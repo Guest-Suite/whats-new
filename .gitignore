@@ -7,3 +7,6 @@ dist/
 
 # Local Netlify folder
 .netlify
+
+# Generated at runtime — not to be committed
+server/data/

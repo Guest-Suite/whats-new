@@ -1,5 +1,8 @@
+import { writeFileSync, mkdirSync, renameSync } from 'node:fs'
+import { join } from 'node:path'
 import { Client } from '@notionhq/client'
 import Anthropic from '@anthropic-ai/sdk'
+import { fetchPublishedItems } from '../utils/fetchPublishedItems'
 
 const DB_ID = '134b85ab6efc802c9f61c8f2aa250968'
 const PROMPT_PAGE_ID = '32eb85ab6efc81098ebeeadfca7afbf9'
@@ -86,7 +89,6 @@ Genere le contenu "Quoi de neuf" au format JSON demande.`
 
   const parsed = JSON.parse(jsonMatch[0])
 
-  // Validate required fields
   if (typeof parsed.titre !== 'string' || !parsed.titre.trim()) {
     throw new Error('Champ "titre" manquant ou invalide dans la réponse Claude')
   }
@@ -110,6 +112,16 @@ Genere le contenu "Quoi de neuf" au format JSON demande.`
 function toRichText(text: string) {
   if (!text) return []
   return [{ text: { content: text } }]
+}
+
+async function refreshJsonCache(notionKey: string): Promise<void> {
+  const items = await fetchPublishedItems(notionKey)
+  const dataDir = process.env.DATA_DIR || join(process.cwd(), 'server', 'data')
+  mkdirSync(dataDir, { recursive: true })
+  const filePath = join(dataDir, 'changelog.json')
+  const tmpPath = `${filePath}.tmp`
+  writeFileSync(tmpPath, JSON.stringify(items, null, 2))
+  renameSync(tmpPath, filePath)
 }
 
 export default defineEventHandler(async (event) => {
@@ -158,7 +170,6 @@ export default defineEventHandler(async (event) => {
   let pages: any[]
 
   if (targetPageId) {
-    // n8n sends a specific page — fetch it directly
     const page = await notion.pages.retrieve({ page_id: targetPageId })
     pages = [page]
   }
@@ -191,10 +202,8 @@ export default defineEventHandler(async (event) => {
     }
 
     try {
-      // 3. Generer le contenu via Claude
       const content = await generateContent(anthropic, systemPrompt, fonctionnalites, bugs)
 
-      // 4. Mettre a jour la page Notion
       await notion.pages.update({
         page_id: page.id,
         properties: {
@@ -212,7 +221,6 @@ export default defineEventHandler(async (event) => {
 
       results.push({ id: page.id, nom, status: 'generated', content })
 
-      // Slack notification
       const slackWebhookUrl = config.slackWebhookUrl
       if (slackWebhookUrl) {
         const notionUrl = `https://www.notion.so/guest-suite/${page.id.replace(/-/g, '')}`
@@ -222,13 +230,18 @@ export default defineEventHandler(async (event) => {
           body: JSON.stringify({
             text: `:sparkles: Le wording *Quoi de neuf* pour *${nom}* a été généré. Merci de le vérifier : ${notionUrl}`,
           }),
-        }).catch(() => {}) // ne bloque pas si Slack est indisponible
+        }).catch(() => {})
       }
     }
     catch (err: any) {
       results.push({ id: page.id, nom, status: 'error', error: err.message })
     }
   }
+
+  // Refresh the JSON cache with the latest published items
+  refreshJsonCache(notionKey).catch((err) => {
+    console.error('[generate] Échec du refresh JSON cache:', err)
+  })
 
   return {
     generated: results.filter((r) => r.status === 'generated').length,

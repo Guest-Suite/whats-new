@@ -31,7 +31,6 @@
       v-if="entry.ctaTexte && entry.ctaLien"
       :href="ctaUrl"
       target="_blank"
-      rel="noopener noreferrer"
       class="entry__cta"
     >
       {{ entry.ctaTexte }}
@@ -39,6 +38,35 @@
         <path d="M2.5 9.5L9.5 2.5M9.5 2.5H4.5M9.5 2.5V7.5" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
       </svg>
     </a>
+
+    <!-- Autres ajouts -->
+    <div v-if="parsedAutresAjouts.length" class="autres-ajouts">
+      <button
+        class="autres-ajouts__toggle"
+        :aria-expanded="autresAjoutsOpen"
+        @click="autresAjoutsOpen = !autresAjoutsOpen"
+      >
+        <span class="autres-ajouts__label">Autres ajouts ({{ parsedAutresAjouts.length }})</span>
+        <svg
+          class="autres-ajouts__chevron"
+          :class="{ 'autres-ajouts__chevron--open': autresAjoutsOpen }"
+          width="14"
+          height="14"
+          viewBox="0 0 14 14"
+          fill="none"
+        >
+          <path d="M3 5l4 4 4-4" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
+        </svg>
+      </button>
+      <div class="autres-ajouts__body" :class="{ 'autres-ajouts__body--open': autresAjoutsOpen }">
+        <ul class="autres-ajouts__list">
+          <li v-for="(a, i) in parsedAutresAjouts" :key="i" class="autres-ajouts__item">
+            <span v-if="a.label" class="autres-ajouts__pill">{{ a.label }}</span>
+            <span class="autres-ajouts__text">{{ a.text }}</span>
+          </li>
+        </ul>
+      </div>
+    </div>
 
     <!-- Corrections -->
     <div v-if="parsedCorrections.length" class="corrections">
@@ -72,27 +100,48 @@
 </template>
 
 <script setup lang="ts">
-const props = defineProps<{
-  entry: {
-    id: string
-    titre: string
-    description: string
-    date: string | null
-    media: string | null
-    ctaTexte: string | null
-    ctaLien: string | null
-    tags: string[]
-    corrections?: string[]
-  }
-}>()
+import type { ChangelogItem } from '~/server/types/changelog'
 
-import { tagKey, buildCtaUrl, parseListItems } from '~/utils/changelog'
+const props = defineProps<{ entry: ChangelogItem }>()
 
-const ctaUrl = computed(() => buildCtaUrl(props.entry.ctaLien))
+const APP_BASE = 'https://app.guest-suite.com'
 
+const TAG_KEYS: Record<string, string> = {
+  'Nouveau':      'new',
+  'Amélioration': 'improve',
+  'Intégration':  'integration',
+  'Performance':  'perf',
+}
+
+const tagKey = (tag: string) => TAG_KEYS[tag] ?? 'default'
+
+const ctaUrl = computed(() => {
+  const l = props.entry.ctaLien ?? ''
+  return l.startsWith('http') ? l : `${APP_BASE}${l}`
+})
+
+const autresAjoutsOpen = ref(false)
 const correctionsOpen = ref(false)
 
-const parsedCorrections = computed(() => parseListItems(props.entry.corrections ?? []))
+const parsedAutresAjouts = computed(() => {
+  return (props.entry.autresAjouts ?? []).map((line) => {
+    const idx = line.indexOf(' - ')
+    if (idx !== -1) {
+      return { label: line.slice(0, idx), text: line.slice(idx + 3) }
+    }
+    return { label: null, text: line }
+  })
+})
+
+const parsedCorrections = computed(() => {
+  return (props.entry.corrections ?? []).map((line) => {
+    const idx = line.indexOf(' - ')
+    if (idx !== -1) {
+      return { label: line.slice(0, idx), text: line.slice(idx + 3) }
+    }
+    return { label: null, text: line }
+  })
+})
 </script>
 
 <style scoped>
@@ -102,6 +151,7 @@ const parsedCorrections = computed(() => parseListItems(props.entry.corrections 
   scroll-margin-top: 80px;
 }
 .entry:target {
+  opacity: 1;
   animation: entry-highlight 1.8s ease forwards;
 }
 @keyframes entry-highlight {
@@ -176,6 +226,56 @@ const parsedCorrections = computed(() => parseListItems(props.entry.corrections 
 }
 .entry__cta-icon { transition: transform 0.15s ease; }
 .entry__cta:hover .entry__cta-icon { transform: translate(1px, -1px); }
+
+/* Autres ajouts */
+.autres-ajouts {
+  margin-top: 16px;
+  padding-top: 12px;
+  border-top: 1px solid var(--border);
+}
+.autres-ajouts__toggle {
+  display: flex; align-items: center; width: 100%;
+  background: none; border: none; cursor: pointer; padding: 6px 0;
+  color: var(--text);
+  font-family: var(--font);
+  font-size: 14px; font-weight: 500;
+  transition: color 0.15s ease;
+  text-align: left;
+}
+.autres-ajouts__toggle:hover { color: var(--text); }
+.autres-ajouts__label { flex: 1; }
+.autres-ajouts__chevron {
+  flex-shrink: 0;
+  margin-left: auto;
+  color: var(--text-muted);
+  transition: transform 0.2s ease;
+}
+.autres-ajouts__chevron--open { transform: rotate(90deg); }
+.autres-ajouts__body {
+  display: grid;
+  grid-template-rows: 0fr;
+  transition: grid-template-rows 0.25s ease;
+}
+.autres-ajouts__body--open { grid-template-rows: 1fr; }
+.autres-ajouts__list {
+  overflow: hidden;
+  list-style: none; padding: 0; margin: 0;
+}
+.autres-ajouts__item {
+  display: flex; align-items: baseline; flex-wrap: wrap; gap: 7px;
+  padding: 5px 0;
+  font-size: 14px; color: var(--text-secondary);
+}
+.autres-ajouts__item:first-child { padding-top: 10px; }
+.autres-ajouts__pill {
+  display: inline-flex; align-items: center;
+  font-size: 10px; font-weight: 500;
+  color: #1D4ED8; background: #EFF6FF;
+  border: 1px solid #DBEAFE;
+  border-radius: 4px; padding: 1px 6px;
+  white-space: nowrap; flex-shrink: 0;
+}
+.autres-ajouts__text { line-height: 1.5; }
 
 /* Corrections */
 .corrections {

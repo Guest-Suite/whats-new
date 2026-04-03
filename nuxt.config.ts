@@ -24,9 +24,11 @@ export default defineNuxtConfig({
         'Permissions-Policy': 'camera=(), microphone=(), geolocation=()',
       },
     },
+    '/api/changelog.json': { cors: true },
   },
 
   devServer: {
+    host: '0.0.0.0',
     port: 3005,
   },
 })

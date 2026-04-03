@@ -41,11 +41,6 @@ export default defineEventHandler(async (event) => {
         .join('')
         .split('\n')
         .filter((l: string) => l.trim()),
-      autresAjouts: (props['Autres ajouts Quoi de neuf']?.rich_text ?? [])
-        .map((rt: any) => rt.plain_text)
-        .join('')
-        .split('\n')
-        .filter((l: string) => l.trim()),
     }
   })
 })

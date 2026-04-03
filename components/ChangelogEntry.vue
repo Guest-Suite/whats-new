@@ -1,5 +1,5 @@
 <template>
-  <article class="entry">
+  <article :id="entry.id" class="entry">
     <!-- Tags -->
     <div v-if="entry.tags.length" class="entry__tags">
       <span
@@ -131,6 +131,15 @@ const parsedCorrections = computed(() => parseListItems(props.entry.corrections 
 .entry {
   padding: 28px 0;
   border-bottom: 1px solid var(--border);
+  scroll-margin-top: 80px;
+}
+.entry:target {
+  animation: entry-highlight 1.8s ease forwards;
+}
+@keyframes entry-highlight {
+  0%   { background: #FDF2F6; border-radius: 12px; }
+  60%  { background: #FDF2F6; border-radius: 12px; }
+  100% { background: transparent; }
 }
 .entry:last-child { border-bottom: none; padding-bottom: 0; }
 

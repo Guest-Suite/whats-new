@@ -420,11 +420,22 @@ function exitPresentation() {
 const handleScroll = () => { scrolled.value = window.scrollY > 20 }
 const checkMobile = () => { isMobile.value = window.innerWidth <= 580 }
 
-onMounted(() => {
+onMounted(async () => {
   window.addEventListener('scroll', handleScroll, { passive: true })
   window.addEventListener('keydown', handleKeydown)
   checkMobile()
   window.addEventListener('resize', checkMobile, { passive: true })
+
+  const hash = window.location.hash.slice(1)
+  if (hash) {
+    await nextTick()
+    const el = document.getElementById(hash)
+    if (el) {
+      const offset = 80
+      const top = el.getBoundingClientRect().top + window.scrollY - offset
+      window.scrollTo({ top, behavior: 'smooth' })
+    }
+  }
 })
 
 onUnmounted(() => {

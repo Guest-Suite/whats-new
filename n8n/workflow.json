@@ -112,6 +112,27 @@
       "type": "n8n-nodes-base.httpRequest",
       "typeVersion": 4.2,
       "position": [1000, 0]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://REMPLACER_PAR_DOMAINE_CLEVER_CLOUD/api/generate",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "Authorization",
+              "value": "Bearer REMPLACER_PAR_GENERATE_SECRET"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "sync-clever-cloud",
+      "name": "Sync changelog Clever Cloud",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [1250, 0]
     }
   ],
   "connections": {
@@ -120,6 +141,11 @@
         [
           {
             "node": "Query Notion DB — À générer",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "Sync changelog Clever Cloud",
             "type": "main",
             "index": 0
           }
@@ -153,6 +179,17 @@
         [
           {
             "node": "Notifier Slack",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Notifier Slack": {
+      "main": [
+        [
+          {
+            "node": "Sync changelog Clever Cloud",
             "type": "main",
             "index": 0
           }

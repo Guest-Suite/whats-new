@@ -2,7 +2,8 @@ import { readFileSync, existsSync } from 'node:fs'
 import { join } from 'node:path'
 import type { ChangelogItem } from '../types/changelog'
 
-const dataDir = process.env.DATA_DIR || join(process.cwd(), 'server', 'data')
+const appHome = process.env.APP_HOME || process.cwd()
+const dataDir = join(appHome, process.env.DATA_DIR || 'server/data')
 const filePath = join(dataDir, 'changelog.json')
 
 const MOCK_DATA: ChangelogItem[] = [

@@ -116,8 +116,9 @@ function toRichText(text: string) {
 
 async function refreshJsonCache(notionKey: string): Promise<void> {
   const items = await fetchPublishedItems(notionKey)
-  const dataDir = process.env.DATA_DIR || join(process.cwd(), 'server', 'data')
-  mkdirSync(dataDir, { recursive: true })
+  const appHome = process.env.APP_HOME || process.cwd()
+  const dataDir = join(appHome, process.env.DATA_DIR || 'server/data')
+  try { mkdirSync(dataDir, { recursive: true }) } catch {}
   const filePath = join(dataDir, 'changelog.json')
   const tmpPath = `${filePath}.tmp`
   writeFileSync(tmpPath, JSON.stringify(items, null, 2))
@@ -185,6 +186,9 @@ export default defineEventHandler(async (event) => {
   }
 
   if (!pages.length) {
+    refreshJsonCache(notionKey).catch((err) => {
+      console.error('[generate] Échec du refresh JSON cache:', err)
+    })
     return { generated: 0, message: 'Aucune entree a generer' }
   }
 

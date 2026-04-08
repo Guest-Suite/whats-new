@@ -8,5 +8,11 @@ dist/
 # Local Netlify folder
 .netlify
 
+# IDE
+.idea/
+
+# Clever Cloud CLI
+.clever.json
+
 # Generated at runtime — not to be committed
 server/data/

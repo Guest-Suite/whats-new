@@ -2,6 +2,15 @@ export default defineNuxtConfig({
   app: {
     head: {
       title: 'Quoi de neuf ? - Guest Suite',
+      htmlAttrs: { lang: 'fr' },
+      meta: [
+        { name: 'description', content: 'Suivez toutes les nouveautés et mises à jour de Guest Suite.' },
+        { property: 'og:title', content: 'Quoi de neuf ? - Guest Suite' },
+        { property: 'og:description', content: 'Suivez toutes les nouveautés et mises à jour de Guest Suite.' },
+        { property: 'og:url', content: 'https://news.guest-suite.com/' },
+        { property: 'og:type', content: 'website' },
+        { property: 'og:image', content: 'https://news.guest-suite.com/favicon.svg' },
+      ],
       link: [
         { rel: 'icon', type: 'image/svg+xml', href: '/favicon.svg' },
       ],

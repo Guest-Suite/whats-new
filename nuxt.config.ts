@@ -1,12 +1,12 @@
 export default defineNuxtConfig({
   app: {
     head: {
-      title: 'Quoi de neuf ? - Guest Suite',
+      title: 'Guest Suite - Quoi de neuf ? Nouvelles fonctionnalités, améliorations et mises à jour',
       htmlAttrs: { lang: 'fr' },
       meta: [
-        { name: 'description', content: 'Suivez toutes les nouveautés et mises à jour de Guest Suite.' },
-        { property: 'og:title', content: 'Quoi de neuf ? - Guest Suite' },
-        { property: 'og:description', content: 'Suivez toutes les nouveautés et mises à jour de Guest Suite.' },
+        { name: 'description', content: 'Découvrez les dernières nouveautés Guest Suite : nouvelles fonctionnalités, améliorations produit et corrections. Suivez l\'évolution de la plateforme en temps réel.' },
+        { property: 'og:title', content: 'Guest Suite - Quoi de neuf ? Nouvelles fonctionnalités, améliorations et mises à jour' },
+        { property: 'og:description', content: 'Découvrez les dernières nouveautés Guest Suite : nouvelles fonctionnalités, améliorations produit et corrections. Suivez l\'évolution de la plateforme en temps réel.' },
         { property: 'og:url', content: 'https://news.guest-suite.com/' },
         { property: 'og:type', content: 'website' },
         { property: 'og:image', content: 'https://news.guest-suite.com/favicon.svg' },

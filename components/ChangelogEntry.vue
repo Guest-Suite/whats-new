@@ -104,16 +104,9 @@ import type { ChangelogItem } from '~/server/types/changelog'
 
 const props = defineProps<{ entry: ChangelogItem }>()
 
+import { tagKey, buildCtaUrl } from '~/utils/changelog'
+
 const APP_BASE = 'https://app.guest-suite.com'
-
-const TAG_KEYS: Record<string, string> = {
-  'Nouveau':      'new',
-  'Amélioration': 'improve',
-  'Intégration':  'integration',
-  'Performance':  'perf',
-}
-
-const tagKey = (tag: string) => TAG_KEYS[tag] ?? 'default'
 
 const ctaUrl = computed(() => {
   const l = props.entry.ctaLien ?? ''
@@ -177,6 +170,13 @@ const parsedCorrections = computed(() => {
 .tag--improve     { background: #EFF6FF; color: #1D4ED8; border: 1px solid #DBEAFE; }
 .tag--integration { background: #F0FDF4; color: #166534; border: 1px solid #DCFCE7; }
 .tag--perf        { background: #FFFBEB; color: #92400E; border: 1px solid #FDE68A; }
+.tag--alerts      { background: #FEF2F2; color: #991B1B; border: 1px solid #FECACA; }
+.tag--fallback-1  { background: #FDF4FF; color: #86198F; border: 1px solid #F5D0FE; }
+.tag--fallback-2  { background: #FFF7ED; color: #9A3412; border: 1px solid #FED7AA; }
+.tag--fallback-3  { background: #F0FDFA; color: #115E59; border: 1px solid #CCFBF1; }
+.tag--fallback-4  { background: #FEF9C3; color: #854D0E; border: 1px solid #FDE047; }
+.tag--fallback-5  { background: #F1F5F9; color: #334155; border: 1px solid #CBD5E1; }
+.tag--fallback-6  { background: #FCE7F3; color: #9D174D; border: 1px solid #FBCFE8; }
 .tag--default     { background: var(--bg-subtle); color: var(--text-secondary); border: 1px solid var(--border); }
 
 /* Title */

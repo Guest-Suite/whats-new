@@ -904,6 +904,13 @@ body {
 .pres-card .tag--improve     { background: #EFF6FF; color: #1D4ED8; border: 1px solid #DBEAFE; }
 .pres-card .tag--integration { background: #F0FDF4; color: #166534; border: 1px solid #DCFCE7; }
 .pres-card .tag--perf        { background: #FFFBEB; color: #92400E; border: 1px solid #FDE68A; }
+.pres-card .tag--alerts      { background: #FEF2F2; color: #991B1B; border: 1px solid #FECACA; }
+.pres-card .tag--fallback-1  { background: #FDF4FF; color: #86198F; border: 1px solid #F5D0FE; }
+.pres-card .tag--fallback-2  { background: #FFF7ED; color: #9A3412; border: 1px solid #FED7AA; }
+.pres-card .tag--fallback-3  { background: #F0FDFA; color: #115E59; border: 1px solid #CCFBF1; }
+.pres-card .tag--fallback-4  { background: #FEF9C3; color: #854D0E; border: 1px solid #FDE047; }
+.pres-card .tag--fallback-5  { background: #F1F5F9; color: #334155; border: 1px solid #CBD5E1; }
+.pres-card .tag--fallback-6  { background: #FCE7F3; color: #9D174D; border: 1px solid #FBCFE8; }
 .pres-card .tag--default     { background: var(--bg-subtle); color: var(--text-secondary); border: 1px solid var(--border); }
 
 /* entry__cta reused */

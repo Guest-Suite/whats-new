@@ -5,10 +5,20 @@ export const TAG_KEYS: Record<string, string> = {
   'Amélioration': 'improve',
   'Intégration':  'integration',
   'Performance':  'perf',
+  'Alertes':      'alerts',
 }
 
+/** Palette de couleurs pour les tags dynamiques non listés dans TAG_KEYS */
+const FALLBACK_PALETTE = ['fallback-1', 'fallback-2', 'fallback-3', 'fallback-4', 'fallback-5', 'fallback-6']
+const dynamicTagCache = new Map<string, string>()
+let fallbackIndex = 0
+
 export function tagKey(tag: string): string {
-  return TAG_KEYS[tag] ?? 'default'
+  if (TAG_KEYS[tag]) return TAG_KEYS[tag]
+  if (!dynamicTagCache.has(tag) && fallbackIndex < FALLBACK_PALETTE.length) {
+    dynamicTagCache.set(tag, FALLBACK_PALETTE[fallbackIndex++])
+  }
+  return dynamicTagCache.get(tag) ?? 'default'
 }
 
 const ALLOWED_HOSTS = ['app.guest-suite.com', 'guest-suite.com', 'www.guest-suite.com']

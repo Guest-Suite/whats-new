@@ -437,8 +437,6 @@ onUnmounted(() => {
 })
 
 useHead({
-  title: "Quoi de neuf ? — Guest Suite",
-  meta: [{ name: 'description', content: 'Toutes les nouveautés de Guest Suite' }],
   link: [
     { rel: 'preconnect', href: 'https://fonts.googleapis.com' },
     { rel: 'preconnect', href: 'https://fonts.gstatic.com', crossorigin: '' },

@@ -594,10 +594,12 @@ body {
 
 .filters__inner {
   display: flex; align-items: center; flex-wrap: wrap; gap: 10px;
+  width: 100%;
 }
 
 .filters__tags {
   display: flex; align-items: center; gap: 6px; flex-wrap: wrap;
+  flex: 1 1 auto; min-width: 0;
 }
 
 .filter__tag {

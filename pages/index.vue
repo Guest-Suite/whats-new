@@ -599,7 +599,7 @@ body {
 
 .filters__tags {
   display: flex; align-items: center; gap: 6px; flex-wrap: wrap;
-  flex: 1 1 auto; min-width: 0;
+  flex: 1 1 0; min-width: 0;
 }
 
 .filter__tag {

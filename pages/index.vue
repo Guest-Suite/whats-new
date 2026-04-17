@@ -593,13 +593,12 @@ body {
 }
 
 .filters__inner {
-  display: flex; align-items: center; flex-wrap: wrap; gap: 10px;
+  display: flex; align-items: center; flex-wrap: wrap; gap: 8px 10px;
   width: 100%;
 }
 
 .filters__tags {
   display: flex; align-items: center; gap: 6px; flex-wrap: wrap;
-  flex: 1 1 auto; min-width: 0;
 }
 
 .filter__tag {
@@ -962,9 +961,6 @@ body {
   .header__pres-label { display: none; }
   .header__pres-btn { padding: 7px 10px; }
 
-  .filters__inner { gap: 8px; }
-  .filters__tags { flex-wrap: nowrap; overflow-x: auto; padding-bottom: 2px; }
-  .filters__tags::-webkit-scrollbar { display: none; }
   .filters__sep { display: none; }
 
   .hero__title { font-size: 36px; }

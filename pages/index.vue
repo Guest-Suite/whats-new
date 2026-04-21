@@ -447,6 +447,7 @@ useHead({
 
 <style>
 *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+html { overflow-x: clip; }
 
 :root {
   --fuchsia-50:  #FDF2F6;
